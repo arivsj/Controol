@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "controol"
+version = "0.1.0"
+description = "Controol CLI — cyberpunk que orquestra um harness de IA (opencode) com memória de conhecimento, revisão de diff e relatórios"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "click>=8.0",
+    "textual>=0.86",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+controol = "controol.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["controol*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

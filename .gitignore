@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Testes
+.pytest_cache/
+.coverage
+
+# Artefatos gerados pelo Controol
+controol-report.html
+controol-estudo.html

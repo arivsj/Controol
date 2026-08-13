@@ -1,0 +1,409 @@
+/* ============================================================
+   Controol — tema neon estilo bashtop/btop
+   Fundo quase preto + caixas com borda colorida por painel,
+   títulos neon e glyphs coloridos (ciano/magenta/violeta).
+   ============================================================ */
+Screen {
+    background: #060604;
+    color: #e4e4e4;
+}
+
+/* ---------- Banner (cabeçalho em caixa) ---------- */
+#banner {
+    height: auto;
+    margin: 0;
+}
+
+/* ---------- Colunas: esquerda (modos+git+execução) e direita (diff) ---------- */
+#columns {
+    height: 1fr;  /* ocupa o espaço entre banner e prompt */
+    margin: 0;
+}
+
+#left {
+    width: 54;   /* cards modos + execução mais largos; o diff fica mais estreito */
+    height: 1fr;
+    margin: 0;
+}
+
+/* ---------- Botões compactos: 1 linha, sem borda, cor de fundo ---------- */
+#gitbar Button,
+#diff-actions Button,
+#diff-nav Button,
+Button#btn-send,
+#commit-modal Button,
+#memory-modal Button {
+    height: 1;
+    min-height: 1;
+    padding: 0 1;
+    border: none;
+    overflow-y: hidden;  /* line-pad é no mínimo 1 → corta e centraliza o label */
+}
+
+#gitbar Button:hover,
+#diff-actions Button:hover,
+#diff-nav Button:hover,
+Button#btn-send:hover,
+#commit-modal Button:hover,
+#memory-modal Button:hover {
+    border: none;  /* hover não pode re-adicionar a borda tall do default */
+}
+
+#gitbar {
+    height: auto;
+    margin: 0;
+    padding-top: 0;
+    align: center middle;  /* os 6 botões centralizam na coluna (54) */
+}
+
+#gitbar Button {
+    min-width: 8;
+    margin-right: 0;  /* soma ~53 → cabe nos 54 da coluna esquerda */
+    text-style: bold;
+}
+
+#gitbar Button:disabled {
+    opacity: 0.4;
+}
+
+Button#git-status {
+    background: #0a1a2b;
+    color: #00f5d4;
+}
+
+Button#git-add {
+    background: #0b2b1a;
+    color: #a6e22e;
+}
+
+Button#git-commit {
+    background: #0a1a2b;
+    color: #00bbf9;
+}
+
+Button#git-push {
+    background: #2b0b0f;
+    color: #ff2e63;
+}
+
+Button#git-fetch {
+    background: #241a2b;
+    color: #9d4edd;
+}
+
+Button#git-pull {
+    background: #2b2114;
+    color: #ffb703;
+}
+
+#prompt {
+    height: auto;
+    max-height: 10;  /* cabe a fila de pedidos quando o agente está ocupado */
+    margin: 0;
+    border: round #f72585;  /* painel de conversa = rosa, casa com o footer */
+    background: #0a0a09;
+    padding: 0 1 1 1;
+}
+
+#prompt .panel-title {
+    color: #f72585;
+}
+
+#prompt-row {
+    height: auto;
+    align: center middle;
+}
+
+/* ---------- Fila de pedidos (dentro do card de conversa) ---------- */
+#prompt #queue-list {
+    display: none;
+    height: auto;
+    max-height: 5;
+    margin-top: 1;
+    border: round #ffb703;
+    background: #12110d;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+/* ---------- Caixa de modos (borda magenta) ---------- */
+#modes {
+    width: 1fr;        /* preenche a coluna esquerda (54) */
+    height: auto;      /* não cresce: sobra espaço vertical p/ o card de execução */
+    border: round #f72585;
+    background: #0a0a09;
+    padding: 0 1 1 1;
+}
+
+/* ---------- Caixa de diff (borda ciano) ---------- */
+#diff {
+    width: 1fr;    /* ocupa o restante da largura */
+    height: 1fr;   /* card de revisão alto: toda a coluna direita */
+    border: round #00f5d4;
+    background: #0a0a09;
+    padding: 0 1 1 1;
+}
+
+.panel-title {
+    color: #00f5d4;
+    text-style: bold;
+    margin-top: 0;  /* margem mínima → mais espaço para os dados do card */
+}
+
+#modes .panel-title {
+    color: #f72585;
+}
+
+#diff .panel-title {
+    color: #00f5d4;
+}
+
+/* ---------- Modos: Trabalho/Estudo como botões iguais ---------- */
+#mode-row {
+    height: auto;
+    margin-top: 1;
+}
+
+#mode-row Checkbox {
+    width: 1fr;
+    height: 3;
+    padding: 0 1;
+    border: round #535768;
+    background: #0a0a09;
+    color: #e4e4e4;
+}
+
+#mode-row Checkbox.selected {
+    border: round #a6e22e;  /* verde = modo ativo */
+}
+
+#mode-row Checkbox > .toggle {
+    color: #00f5d4;
+    text-style: bold;
+}
+
+#mode-row Checkbox.selected > .toggle {
+    color: #a6e22e;
+}
+
+#mode-row Checkbox:focus > .toggle {
+    text-style: bold;
+    color: #f72585;
+}
+
+/* ---------- Lista de arquivos ---------- */
+#file-list {
+    border: tall #535768;
+    background: #0a0a09;
+    height: auto;
+    max-height: 20;  /* 4x o subcard enxuto (~18 linhas + scroll se passar disso) */
+    scrollbar-color: #f72585;
+}
+
+#file-list:focus {
+    border: tall #00f5d4;
+}
+
+OptionList > .option-list--option {
+    color: #e4e4e4;
+}
+
+OptionList > .option-list--option:hover {
+    background: #232538;
+    color: #00f5d4;
+}
+
+OptionList > .option-list--option.highlight {
+    background: #232538;
+    color: #00f5d4;
+}
+
+/* ---------- Painel de diff ---------- */
+#diff-title {
+    color: #00f5d4;
+    text-style: bold;
+}
+
+/* ---------- Navegação < > entre arquivos (centro, topo do card de diff) ---------- */
+#diff-nav {
+    height: auto;
+    margin: 0;
+    align: center middle;
+}
+
+#diff-nav Button {
+    min-width: 3;
+    background: #0a1a2b;
+    color: #00f5d4;
+}
+
+#diff-nav Button:disabled {
+    opacity: 0.4;
+}
+
+#diff-scroll {
+    height: 1fr;
+    border: tall #535768;
+    background: #0b0c0a;
+    scrollbar-color: #f72585;
+}
+
+#diff-content {
+    padding: 0 1;
+}
+
+.diff-status {
+    color: #00f5d4;
+    text-style: bold;
+    height: 1;
+}
+
+#diff-actions {
+    height: auto;
+    padding-top: 1;
+}
+
+Button#btn-accept {
+    background: #0b2b1a;
+    color: #00f5d4;
+}
+
+Button#btn-reject {
+    background: #2b0b0f;
+    color: #ff2e63;
+    margin-left: 1;
+}
+
+Button#btn-accept-all {
+    background: #0b2b1a;
+    color: #a6e22e;
+    margin-left: 1;
+}
+
+/* ---------- Prompt: onde você fala com o agente ---------- */
+/* altura 3 (borda round = box-sizing) → 1 linha de texto visível; antes
+   `height: 1` deixava a área de conteúdo em 0 e o texto sumia. */
+#prompt-field {
+    width: 1fr;  /* ocupa o resto da linha; o botão Enviar não estoura a tela */
+    border: round #535768;
+    background: #0a0a09;
+    color: #e4e4e4;
+    height: 3;
+    min-height: 3;
+}
+
+#prompt-field:focus {
+    border: round #00f5d4;
+}
+
+#prompt-field:disabled {
+    opacity: 0.4;
+}
+
+Button#btn-send {
+    background: #0a1a2b;
+    color: #00f5d4;
+    margin-left: 1;
+}
+
+#btn-send:disabled {
+    opacity: 0.4;
+}
+
+/* ---------- Execução + resposta do agente (coluna esquerda, 54) ---------- */
+#agent-summary {
+    height: 1fr;     /* ocupa o espaço que sobra — card de resposta maior */
+    min-height: 1;
+    margin: 0;
+    border: round #00bbf9;
+    background: #0a0a09;
+    padding: 0 1 1 1;
+    overflow-y: auto;
+}
+
+#agent-summary .panel-title {
+    color: #00bbf9;
+}
+
+#agent-summary #summary-content {
+    padding: 0 1;
+}
+
+/* ---------- Footer rosa (stats: modelo / contexto / tokens + Clear) ---------- */
+#status-footer {
+    height: 3;
+    padding: 0 1;
+    background: #0a0a09;
+    color: #e4e4e4;
+    border: round #f72585;
+    margin: 0;
+    align: center middle;
+}
+
+#status-footer #footer-content {
+    width: 1fr;  /* empurra o botão Clear para o fim do footer */
+}
+
+#status-footer Button {
+    height: 1;
+    min-height: 1;
+    padding: 0 2;
+    border: none;
+    overflow-y: hidden;
+    background: #2b0b0f;
+    color: #ff2e63;
+    margin-left: 1;
+    text-style: bold;
+}
+
+#status-footer Button:hover {
+    border: none;
+}
+
+/* ---------- Modais ---------- */
+ModalScreen {
+    align: center middle;
+}
+
+#memory-modal {
+    width: 70;
+    height: auto;
+    border: round #f72585;
+    background: #0a0a09;
+    padding: 1 2;
+}
+
+#memory-modal .panel-title {
+    color: #f72585;
+}
+
+#memory-modal Button {
+    margin-top: 1;
+}
+
+#commit-modal {
+    width: 70;
+    height: auto;
+    border: round #00bbf9;
+    background: #0a0a09;
+    padding: 1 2;
+}
+
+#commit-modal .panel-title {
+    color: #00bbf9;
+}
+
+#commit-modal Input {
+    border: round #535768;
+    margin-top: 1;
+}
+
+#commit-modal Input:focus {
+    border: round #00bbf9;
+}
+
+#commit-modal Button {
+    margin-top: 1;
+    background: #0a1a2b;
+    color: #00bbf9;
+}
