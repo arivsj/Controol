@@ -55,6 +55,9 @@ cabeçalho — como o bashtop/btop:
   ocupa todo o espaço que sobra na coluna). A direita é o **diff** (borda
   ciano), **mais estreito** — a coluna esquerda (modos + resposta) ficou mais
   larga para melhorar a leitura das alterações.
+- **No canto direito do banner**, o botão **`☰`** abre o **menu** do Controol
+  (uma dialog) com as opções da ferramenta. Hoje ele tem o toggle do
+  **gitSecurity**.
 - **No topo do card de diff**, no **centro**, ficam os botões **`<` `>`** que
   **alternam entre os arquivos alterados** (com volta no fim da lista); com um
   único arquivo eles ficam desabilitados. Você também pode trocar clicando num
@@ -175,7 +178,12 @@ o resultado aparece no card de execução:
   contrário abre um **modal** para digitar a mensagem (Enter commita) e mostra
   o hash + subject criado.
 - `push` — envia para o upstream; sem upstream configurado, sugere
-  `git push -u origin <branch>`.
+  `git push -u origin <branch>`. Com o **gitSecurity** ligado (padrão), antes
+  de enviar o Controol **varre os arquivos do push** (commits não enviados +
+  stage) procurando key/token/chave de segurança. Se achar algo, abre um
+  **alerta**: você pode **aceitar a correção** (o aviso vira um prompt para o
+  agente remover os segredos e substituir por variáveis de ambiente) ou
+  **ignorar o alerta e continuar o push**.
 - `fetch` / `pull` — buscam o remoto (o pull integra no branch atual);
   "já atualizado" é tratado como sucesso e conflitos aparecem em vermelho.
 
@@ -236,13 +244,16 @@ controol debug "oi"       # despeja eventos do harness (--raw p/ ver o schema JS
   "model": null,
   "agent": null,
   "auto_approve": false,
-  "language": "pt"
+  "language": "pt",
+  "git_security": true
 }
 ```
 
 - `harness`: `opencode` (padrão) ou `claude`.
 - `model` / `agent`: repassados ao harness (ex.: `anthropic/claude-sonnet-4-5`).
 - `auto_approve`: autoriza tool calls automaticamente (opencode `--auto`).
+- `git_security`: liga/desliga a verificação de segredos antes do push (também
+  alternável pelo menu `☰` do header).
 
 ## Relatórios
 

@@ -165,6 +165,8 @@ class OpenCodeHarness(Harness):
             cwd=str(self.cwd),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            # linha JSON com diff grande não estoura o buffer (64 KiB padrão)
+            limit=self.STREAM_LIMIT,
         )
         assert proc.stdout is not None
         try:

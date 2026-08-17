@@ -32,6 +32,14 @@ e captura as ações dele em 4 capacidades:
    copiar com feedback.
 5. **Modo Estudo** — gera `controol-estudo.html`: explicação didática do código
    alterado com perguntas e respostas (usa o harness).
+6. **gitSecurity** — **ligado por padrão** (`config.json`/menu `☰`): antes do
+   `push`, varre os arquivos que serão enviados (commits não pusheados + stage)
+   procurando key/token/chave de segurança (**sem IA** — `SecurityUseCase` em
+   `application/use_cases/security.py`, padrões em `_TOKEN_PATTERNS`/
+   `_ASSIGN_PATTERN`). Se achar, abre `SecurityAlertModal`: **aceitar** vira um
+   prompt para o agente remover o segredo (via `_enqueue_or_run`) ou **ignorar**
+   e continuar o push. O toggle vive no `MenuModal` (aberto pelo botão `☰` no
+   header) e persiste no `config.json`.
 
 - UI e conteúdo gerado em **Português (Brasil)**. Mantenha isso.
 - Tema cyberpunk: fundo `#0F101D`, ciano `#00F5D4`, rosa `#F72585`, violeta

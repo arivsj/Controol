@@ -244,3 +244,35 @@ def staged_files(cwd: Path) -> list[str]:
 def no_commits_yet(cwd: Path) -> bool:
     """True se o repo ainda não tem nenhum commit (HEAD inexistente)."""
     return head_commit(cwd) is None
+
+
+def upstream_ref(cwd: Path) -> str | None:
+    """Ref de upstream do branch atual (ex.: `origin/main`) ou None."""
+    out = _git(cwd, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    return out.strip() if out else None
+
+
+def outgoing_files(cwd: Path) -> list[str]:
+    """Arquivos que o próximo `git push` vai enviar (rel_paths, sem duplicatas).
+
+    Cobre dois casos: (a) há upstream → arquivos dos commits ainda não
+    pusheados (`<upstream>..HEAD`) + arquivos no stage (vão para o próximo
+    commit); (b) primeiro push (sem upstream) → todos os arquivos rastreados,
+    pois tudo será enviado.
+    """
+    files: set[str] = set()
+    files.update(staged_files(cwd))
+    upstream = upstream_ref(cwd)
+    if upstream is not None:
+        out = _git(cwd, "log", "--name-only", "--format=", f"{upstream}..HEAD") or ""
+    else:
+        out = _git(cwd, "ls-files") or ""
+    for line in out.splitlines():
+        if line.strip():
+            files.add(line.strip())
+    return sorted(files)
+
+
+def read_index_file(cwd: Path, rel_path: str) -> str | None:
+    """Conteúdo de um arquivo no stage (`git show :<path>`)."""
+    return _git(cwd, "show", f":{rel_path}")

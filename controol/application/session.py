@@ -23,6 +23,7 @@ class Session:
     changed_files: list[tuple[str, str]] = field(default_factory=list)
     interactions: list[dict] = field(default_factory=list)
     session_start_head: str | None = None
+    git_security: bool = True  # gitSecurity: verifica segredos antes do push
 
 
 def persist_session(cwd: Path | str, harness_desc: str, interactions: list[dict]) -> None:

@@ -14,8 +14,10 @@ from controol.tui.widgets import (
     CommitModal,
     DiffPanel,
     GitBar,
+    MenuModal,
     ModesPanel,
     PromptInput,
+    SecurityAlertModal,
     StatusFooter,
 )
 from controol.tui.widgets.memory_modal import MemoryModal
@@ -199,6 +201,37 @@ async def test_aceitar_rejeitar_escondidos_sem_alteracoes(repo: Path):
         assert actions.display is False  # display:none → sem espaço nem render
 
 
+async def test_falha_do_agente_mostra_aceite_pendente(repo: Path):
+    """Run que falha no meio não pode esconder o aceite: o painel reflete o git
+    real na hora (sem esperar a próxima interação)."""
+    import subprocess
+
+    from controol.harness.base import Event, Harness
+
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "limpo"], cwd=repo, check=True)
+
+    class _CrashHarness(Harness):
+        name = "fake"
+
+        async def run(self, prompt):
+            (self.cwd / "banco.py").write_text("class Conta:\n    saldo = 1\n")
+            yield Event("agent_text", text="vou alterar")
+            raise RuntimeError("falha simulada no meio do run")
+
+    app = _make_app(repo)
+    app.harness = _CrashHarness(repo)
+    app.run_uc.harness = app.harness
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        assert app.changed_files == []  # partiu de árvore limpa
+        app._enqueue_or_run("mude algo")
+        await pilot.pause(1.0)  # run falha → except → refresh_files
+        assert app.changed_files == [("M", "banco.py")]
+        actions = app.query_one(DiffPanel).query_one("#diff-actions")
+        assert actions.display is True  # aceite pendente visível já na falha
+
+
 async def test_artefatos_internos_nao_poluem_revisao(repo: Path):
     """`.controol/`/relatórios gerados pelo Controol não viram botões de revisão."""
     (repo / ".controol").mkdir(exist_ok=True)
@@ -334,6 +367,46 @@ async def test_probe_model_le_ultima_sessao_do_banco(monkeypatch, repo: Path):
     monkeypatch.setattr(h, "_db_candidates", lambda: [db])
     monkeypatch.setattr(h, "_config_model", lambda: None)  # isola o caminho do banco
     assert h.probe_model() == "deepseek/deepseek-v4-flash"
+
+
+async def test_harness_linha_grande_nao_estoura_buffer(repo: Path, monkeypatch):
+    """Linha JSON do opencode > 64 KiB (diff grande) não estoura o buffer padrão
+    do StreamReader — senão vira asyncio.LimitOverrunError e derruba o run."""
+    import asyncio
+    import json
+    import shutil
+
+    from controol.harness.opencode import OpenCodeHarness
+
+    calls: dict = {}
+
+    class _Proc:
+        returncode = 0
+
+        def __init__(self, reader: asyncio.StreamReader) -> None:
+            self.stdout = reader
+
+        async def wait(self) -> int:
+            return self.returncode
+
+    async def _fake_subprocess(*args, **kw):
+        calls["limit"] = kw.get("limit")
+        reader = asyncio.StreamReader(limit=OpenCodeHarness.STREAM_LIMIT)
+        payload = json.dumps(
+            {"type": "text", "part": {"type": "text", "text": "x" * 70_000}}
+        )
+        reader.feed_data((payload + "\n").encode())
+        reader.feed_eof()
+        return _Proc(reader)
+
+    monkeypatch.setattr(shutil, "which", lambda _: "/usr/bin/opencode")
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", _fake_subprocess)
+
+    h = OpenCodeHarness(repo)
+    events = [e async for e in h.run("altere algo")]
+    assert calls["limit"] and calls["limit"] > 65536  # default do asyncio
+    assert events and events[0].type == "agent_text"
+    assert len(events[0].text) == 70_000
 
 
 async def test_tokens_from_data_usa_total(repo: Path):
@@ -495,3 +568,112 @@ async def test_foco_volta_ao_prompt_ao_cancelar_commit(repo: Path):
         await modal.dismiss(None)  # cancela sem mensagem
         await pilot.pause(0.2)
         assert app.focused is app.query_one("#prompt-field", Input)
+
+
+# ---------- menu do header (☰) + gitSecurity ----------
+
+async def test_menu_abre_e_alterna_gitsecurity(repo: Path):
+    app = _make_app(repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        assert app.session.git_security is True  # padrão: ligado
+        assert app.query_one("#btn-menu") is not None  # botão no canto direito
+        await pilot.click("#btn-menu")
+        await pilot.pause(0.2)
+        assert any(isinstance(s, MenuModal) for s in app.screen_stack)
+        modal = app.screen_stack[-1]
+        assert isinstance(modal, MenuModal)
+        cb = modal.query_one("#menu-gitsecurity", Checkbox)
+        assert cb.value is True
+        cb.value = False  # desliga
+        modal.query_one("#btn-menu-close").press()
+        await pilot.pause(0.2)
+        assert app.session.git_security is False
+        assert app.config.get("git_security") is False  # persistido
+
+
+async def test_gitsecurity_desligado_pula_scan_no_push(repo: Path, monkeypatch):
+    import controol.tui.app as appmod
+
+    calls: list[str] = []
+
+    async def _fake_git(self, action, message=None):
+        calls.append(action)
+        from controol.application.use_cases import GitResult
+
+        return GitResult(ok=True)
+
+    monkeypatch.setattr(appmod.ControolApp, "_run_git", _fake_git)
+    app = _make_app(repo)
+    app.session.git_security = False
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.click("#git-push")
+        await pilot.pause(0.3)
+        assert calls == ["push"]  # foi direto, sem scan/alert
+        assert not any(isinstance(s, SecurityAlertModal) for s in app.screen_stack)
+
+
+async def test_push_com_segredo_abre_alerta_e_ignorar_continua(repo: Path, monkeypatch):
+    import subprocess
+
+    import controol.tui.app as appmod
+
+    (repo / "seg.py").write_text("TOKEN = 'ghp_1234567890abcdefghij'\n")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    calls: list[str] = []
+
+    async def _fake_git(self, action, message=None):
+        calls.append(action)
+        from controol.application.use_cases import GitResult
+
+        return GitResult(ok=True)
+
+    monkeypatch.setattr(appmod.ControolApp, "_run_git", _fake_git)
+    app = _make_app(repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.click("#git-push")
+        await pilot.pause(0.3)  # scan (to_thread) + push_screen
+        assert any(isinstance(s, SecurityAlertModal) for s in app.screen_stack)
+        modal = app.screen_stack[-1]
+        assert isinstance(modal, SecurityAlertModal)
+        modal.query_one("#btn-sec-ignore").press()
+        await pilot.pause(0.3)
+        assert calls == ["push"]  # ignorou e continuou o push
+
+
+async def test_push_com_segredo_aceitar_vira_prompt_do_agente(repo: Path, monkeypatch):
+    import subprocess
+
+    import controol.tui.app as appmod
+
+    (repo / "seg.py").write_text("TOKEN = 'ghp_1234567890abcdefghij'\n")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    queued: list[str] = []
+    calls: list[str] = []
+
+    async def _fake_git(self, action, message=None):
+        calls.append(action)
+        from controol.application.use_cases import GitResult
+
+        return GitResult(ok=True)
+
+    def _fake_enqueue(self, prompt):
+        queued.append(prompt)  # não roda o harness de verdade
+
+    monkeypatch.setattr(appmod.ControolApp, "_run_git", _fake_git)
+    monkeypatch.setattr(appmod.ControolApp, "_enqueue_or_run", _fake_enqueue)
+    app = _make_app(repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.click("#git-push")
+        await pilot.pause(0.3)
+        modal = app.screen_stack[-1]
+        assert isinstance(modal, SecurityAlertModal)
+        modal.query_one("#btn-sec-fix").press()
+        await pilot.pause(0.3)
+        assert queued, "o aceite deveria virar um prompt para o agente"
+        assert "SEGURANÇA" in queued[0]
+        assert "seg.py" in queued[0]
+        assert calls == []  # push NÃO roda quando o usuário aceita corrigir

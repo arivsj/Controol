@@ -10,6 +10,7 @@ DEFAULT_CONFIG: dict = {
     "agent": None,           # ex.: plan (opencode)
     "auto_approve": False,   # --auto no opencode (cuidado: auto-aprova permissões)
     "language": "pt",        # idioma da UI e do conteúdo gerado
+    "git_security": True,    # varre segredos nos arquivos do push antes de enviar
     "memory_dir": ".controol",
 }
 

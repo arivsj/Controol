@@ -28,6 +28,13 @@ class Harness(ABC):
 
     name = "base"
 
+    # As linhas JSON dos harnesses embutem diffs/texto grandes. O StreamReader
+    # do asyncio tem limite padrão de 64 KiB: uma linha maior estoura em
+    # `asyncio.LimitOverrunError` ("separator is found, but chunk is longer than
+    # limit"), que não é JSONDecodeError e derruba o run. O `limit` do
+    # create_subprocess_exec é propagado para o reader do stdout.
+    STREAM_LIMIT = 64 * 1024 * 1024  # 64 MiB
+
     def __init__(
         self,
         cwd: Path,

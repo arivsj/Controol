@@ -13,7 +13,7 @@ from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Checkbox, Input
+from textual.widgets import Button, Checkbox, Input
 
 from .. import __version__
 from ..application import Session, count_text_tokens, fmt_tokens, tokens_from_data
@@ -24,6 +24,8 @@ from ..application.use_cases import (
     ReportUseCase,
     ReviewUseCase,
     RunPromptUseCase,
+    SecretFinding,
+    SecurityUseCase,
 )
 from ..config import Config
 from ..git_tools import head_commit
@@ -39,12 +41,14 @@ from .widgets import (
     FileSelected,
     GitAction,
     GitBar,
+    MenuModal,
     ModeChanged,
     ModesPanel,
     NavigateFile,
     PromptInput,
     PromptSubmitted,
     RejectFile,
+    SecurityAlertModal,
     StatusFooter,
 )
 from .widgets.memory_modal import MemoryModal, NameModal
@@ -82,6 +86,9 @@ class ControolApp(App):
         self.review = ReviewUseCase(self.cwd)
         self.git = GitUseCase(self.cwd)
         self.memory = MemoryUseCase(self.cwd)
+        self.security = SecurityUseCase(self.cwd)
+        # gitSecurity vem da config (padrão: ligado); o menu (☰) alterna e persiste
+        self.session.git_security = bool(config.get("git_security", True))
         self.report = ReportUseCase()
         self.model_probe = ModelProbeUseCase()
         self.run_uc = RunPromptUseCase(self.session, self.harness, self, self.review)
@@ -145,7 +152,9 @@ class ControolApp(App):
 
     # ---------- compose ----------
     def compose(self) -> ComposeResult:
-        yield Banner(id="banner")
+        with Horizontal(id="header-row"):
+            yield Banner(id="banner")
+            yield Button("☰", id="btn-menu")  # menu do header (canto direito)
         with Horizontal(id="columns"):
             # coluna esquerda (54): modos c/ lista de arquivos + git + execução
             with Vertical(id="left"):
@@ -201,6 +210,24 @@ class ControolApp(App):
             self.query_one("#prompt-field", Input).focus()
         except Exception:  # pragma: no cover
             pass
+
+    # ---------- menu do header (☰) ----------
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-menu":
+            self._open_menu()
+
+    def _open_menu(self) -> None:
+        self.push_screen(MenuModal(self.session.git_security), self._on_menu_closed)
+
+    def _on_menu_closed(self, value: bool | None) -> None:
+        if value is None or value == self.session.git_security:
+            self.call_after_refresh(self._focus_prompt)
+            return
+        self.session.git_security = value
+        self.config.set("git_security", value)  # persiste no config.json
+        label = "ligado" if value else "desligado"
+        self._write(f"🛡 gitSecurity {label}", "bold #00f5d4")
+        self.call_after_refresh(self._focus_prompt)
 
     # ---------- stats do footer ----------
     @staticmethod
@@ -307,8 +334,12 @@ class ControolApp(App):
             self._on_run_done(interaction)
         except asyncio.CancelledError:
             self._write("⏹ interrompido", "bold #ffb703")
+            self.refresh_files()  # mudanças já no disco aparecem para aceite
         except Exception as exc:  # falha do agente não pode matar a TUI
             self._write(f"⚠ falha ao rodar o agente: {exc}", "bold #ff2e63")
+            # mesmo com falha, o painel de revisão reflete o git real — se o
+            # agente chegou a alterar algo, os botões de aceite aparecem já
+            self.refresh_files()
         finally:
             self._busy = False
             self.query_one(AgentSummary).stop_working()
@@ -478,8 +509,57 @@ class ControolApp(App):
     def on_git_action(self, event: GitAction) -> None:
         if event.action == "commit":
             self._start_commit()
+        elif event.action == "push":
+            self._start_push()
         else:
             self.run_worker(self._run_git(event.action), group="git")
+
+    def _start_push(self) -> None:
+        if not self.session.git_security:
+            self.run_worker(self._run_git("push"), group="git")
+            return
+        self.run_worker(self._secure_push(), group="git")
+
+    async def _secure_push(self) -> None:
+        """gitSecurity: varre os arquivos do push; se achar segredo, abre o
+        alerta (corrigir com o agente ou ignorar e continuar o push)."""
+        bar = self.query_one(GitBar)
+        bar.set_busy(True)
+        self._write("🛡 gitSecurity: varrendo segredos no push…", "dim #8a8f9e")
+        try:
+            findings = await asyncio.to_thread(self.security.scan)
+        finally:
+            bar.set_busy(False)
+        if not findings:
+            self._write("🛡 gitSecurity: nada suspeito — push liberado", "bold #00f5d4")
+            await self._run_git("push")
+            return
+        self._write(
+            f"🛡 gitSecurity: {len(findings)} possível(is) segredo(s) no push",
+            "bold #ffb703",
+        )
+
+        def on_choice(choice: str | None) -> None:
+            if choice == "ignore":
+                self._write("🛡 alerta ignorado — continuando o push", "bold #ffb703")
+                self.run_worker(self._run_git("push"), group="git")
+            elif choice == "fix":
+                # a correção vira um prompt para o agente (fila/run normal)
+                self._enqueue_or_run(self._security_prompt(findings))
+            else:  # Esc / dismiss sem decisão → não faz push
+                self._focus_prompt()
+
+        self.push_screen(SecurityAlertModal(findings), on_choice)
+
+    @staticmethod
+    def _security_prompt(findings: list[SecretFinding]) -> str:
+        lines = "\n".join(f"  - {f.path}:{f.line} — {f.kind}" for f in findings)
+        return (
+            "SEGURANÇA: o gitSecurity detectou possíveis segredos que iriam no "
+            f"push ({len(findings)} achado(s)):\n{lines}\n"
+            "Remova esses valores do código e substitua por variáveis de ambiente "
+            "(ex.: .env + leitura no código), SEM versionar os segredos."
+        )
 
     def _start_commit(self) -> None:
         if not self.git.has_stage():

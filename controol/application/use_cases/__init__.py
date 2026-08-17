@@ -5,6 +5,7 @@ from .model import ModelProbeUseCase
 from .prompt import RunPromptUseCase
 from .report import ReportUseCase
 from .review import ReviewUseCase
+from .security import SecretFinding, SecurityUseCase
 
 __all__ = [
     "GitResult",
@@ -14,4 +15,6 @@ __all__ = [
     "RunPromptUseCase",
     "ReportUseCase",
     "ReviewUseCase",
+    "SecretFinding",
+    "SecurityUseCase",
 ]

@@ -8,10 +8,34 @@ Screen {
     color: #e4e4e4;
 }
 
-/* ---------- Banner (cabeçalho em caixa) ---------- */
-#banner {
+/* ---------- Banner (cabeçalho em caixa) + botão de menu ☰ ---------- */
+#header-row {
     height: auto;
     margin: 0;
+    align: center middle;  /* o botão ☰ centraliza verticalmente com o banner */
+}
+
+#banner {
+    width: 1fr;   /* o banner preenche a linha; o ☰ fica colado à direita */
+    height: auto;
+    margin: 0;
+}
+
+Button#btn-menu {
+    width: 4;
+    height: 3;
+    min-height: 3;
+    margin-left: 1;
+    padding: 0;
+    border: round #00f5d4;
+    background: #0a0a09;
+    color: #00f5d4;
+    text-style: bold;
+}
+
+Button#btn-menu:hover {
+    border: round #f72585;
+    color: #f72585;
 }
 
 /* ---------- Colunas: esquerda (modos+git+execução) e direita (diff) ---------- */
@@ -406,4 +430,88 @@ ModalScreen {
     margin-top: 1;
     background: #0a1a2b;
     color: #00bbf9;
+}
+
+/* ---------- Menu do header (☰) e alerta de segurança ---------- */
+#menu-modal {
+    width: 60;
+    height: auto;
+    border: round #00f5d4;
+    background: #0a0a09;
+    padding: 1 2;
+}
+
+#menu-modal .panel-title {
+    color: #00f5d4;
+}
+
+#menu-modal Checkbox {
+    margin-top: 1;
+    background: #0a0a09;
+    border: round #535768;
+    padding: 0 1;
+}
+
+#menu-modal Checkbox:focus {
+    border: round #00f5d4;
+}
+
+#menu-modal .menu-hint {
+    color: #8a8f9e;
+    margin-top: 1;
+}
+
+#menu-modal Button {
+    margin-top: 1;
+    background: #0a1a2b;
+    color: #00f5d4;
+}
+
+#security-modal {
+    width: 78;
+    height: auto;
+    max-height: 24;
+    border: round #ff2e63;
+    background: #0a0a09;
+    padding: 1 2;
+    overflow-y: auto;
+}
+
+#security-modal .panel-title {
+    color: #ff2e63;
+}
+
+#security-modal .sec-finding {
+    color: #ffb703;
+    margin-top: 1;
+}
+
+#security-modal .menu-hint {
+    color: #8a8f9e;
+    margin-top: 1;
+}
+
+#security-modal Button {
+    margin-top: 1;
+    height: 1;
+    min-height: 1;
+    padding: 0 1;
+    border: none;
+    overflow-y: hidden;
+    text-style: bold;
+}
+
+#security-modal Button#btn-sec-fix {
+    background: #0b2b1a;
+    color: #a6e22e;
+}
+
+#security-modal Button#btn-sec-ignore {
+    background: #2b0b0f;
+    color: #ff2e63;
+}
+
+#security-modal Button#btn-sec-fix:hover,
+#security-modal Button#btn-sec-ignore:hover {
+    border: none;
 }
